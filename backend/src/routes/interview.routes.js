@@ -409,7 +409,7 @@ router.post('/:id/join', async (req, res) => {
     try {
       if (!aiAgentService.isAgentActive(interview.id) && interview.meeting_id && interview.meeting_token) {
         // Generate fresh agent token
-        const agentToken = livekitService.generateAgentToken(interview.meeting_id, interview.id);
+        const agentToken = await livekitService.generateAgentToken(interview.meeting_id, interview.id);
         
         // Start recording
         const recordingInfo = await livekitService.startRecording(interview.meeting_id);
@@ -534,7 +534,7 @@ router.post('/:id/refresh-token', async (req, res) => {
     }
 
     // Meeting exists, generate fresh token
-    const newToken = livekitService.generateCandidateToken(interview.meeting_id, interview.id);
+    const newToken = await livekitService.generateCandidateToken(interview.meeting_id, interview.id);
     const tokenExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
     await interview.update({

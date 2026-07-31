@@ -44,9 +44,9 @@ const Interview = sequelize.define('Interview', {
     comment: 'Interview duration in minutes'
   },
   meeting_url: {
-    type: DataTypes.STRING(500),
+    type: DataTypes.STRING(2000),
     allowNull: true,
-    comment: 'LiveKit meeting URL'
+    comment: 'LiveKit meeting URL (includes JWT token)'
   },
   meeting_id: {
     type: DataTypes.STRING(100),

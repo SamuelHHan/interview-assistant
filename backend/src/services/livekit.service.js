@@ -35,7 +35,7 @@ class LiveKitService {
    * @param {object} options - Token options
    * @returns {string} - JWT token
    */
-  createToken(identity, roomName, options = {}) {
+  async createToken(identity, roomName, options = {}) {
     const {
       ttl = 7 * 24 * 60 * 60, // 7 days default
       canPublish = true,
@@ -59,7 +59,22 @@ class LiveKitService {
       roomRecord: true
     });
 
-    return token.toJwt();
+    // livekit-server-sdk v2 toJwt() returns a Promise<string>
+    const jwtResult = await token.toJwt();
+    console.log('toJwt result type:', typeof jwtResult, 'value type:', Array.isArray(jwtResult) ? 'array' : typeof jwtResult);
+    
+    // Ensure we always return a pure string
+    let jwtString;
+    if (typeof jwtResult === 'string') {
+      jwtString = jwtResult.trim();
+    } else if (Array.isArray(jwtResult)) {
+      jwtString = jwtResult[0];
+    } else {
+      jwtString = String(jwtResult);
+    }
+    
+    console.log('Final JWT string length:', jwtString.length);
+    return jwtString;
   }
 
   /**
@@ -87,7 +102,7 @@ class LiveKitService {
       });
 
       // Generate candidate token (valid for 7 days)
-      const candidateToken = this.createToken(`candidate-${interviewId}`, roomName, {
+      const candidateToken = await this.createToken(`candidate-${interviewId}`, roomName, {
         ttl: 7 * 24 * 60 * 60, // 7 days in seconds
         metadata: {
           role: 'candidate',
@@ -96,7 +111,7 @@ class LiveKitService {
       });
 
       // Generate AI Agent token
-      const agentToken = this.createToken(`ai-agent-${interviewId}`, roomName, {
+      const agentToken = await this.createToken(`ai-agent-${interviewId}`, roomName, {
         ttl: 7 * 24 * 60 * 60,
         metadata: {
           role: 'ai_agent',
@@ -129,10 +144,10 @@ class LiveKitService {
    * Generate a fresh token for a candidate to join an existing room
    * @param {string} roomName - Room name
    * @param {number} interviewId - Interview ID
-   * @returns {string} - New token
+   * @returns {Promise<string>} - New token
    */
-  generateCandidateToken(roomName, interviewId) {
-    return this.createToken(`candidate-${interviewId}`, roomName, {
+  async generateCandidateToken(roomName, interviewId) {
+    return await this.createToken(`candidate-${interviewId}`, roomName, {
       ttl: 7 * 24 * 60 * 60,
       metadata: {
         role: 'candidate',
@@ -145,10 +160,10 @@ class LiveKitService {
    * Generate a token for AI Agent
    * @param {string} roomName - Room name
    * @param {number} interviewId - Interview ID
-   * @returns {string} - Agent token
+   * @returns {Promise<string>} - Agent token
    */
-  generateAgentToken(roomName, interviewId) {
-    return this.createToken(`ai-agent-${interviewId}`, roomName, {
+  async generateAgentToken(roomName, interviewId) {
+    return await this.createToken(`ai-agent-${interviewId}`, roomName, {
       ttl: 7 * 24 * 60 * 60,
       metadata: {
         role: 'ai_agent',
