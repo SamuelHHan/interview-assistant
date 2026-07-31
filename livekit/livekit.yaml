@@ -10,7 +10,7 @@ bind_addresses:
 rtc:
   udp_port: 7882
   tcp_port: 7881
-  use_external_ip: false
+  use_external_ip: true
   # 允许所有来源（开发环境）
   allow_pause_subs: true
 

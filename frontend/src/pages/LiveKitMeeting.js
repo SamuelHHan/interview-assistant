@@ -41,16 +41,17 @@ function LiveKitMeeting() {
   const recognitionRef = useRef(null);
   const lastFinalTranscriptRef = useRef('');
 
-  // 自动根据当前访问的host确定LiveKit WebSocket地址
-  // 如果环境变量配置了非localhost的地址则使用环境变量，否则使用当前页面host
+  // 使用nginx代理的WebSocket连接（避免浏览器直接连接LiveKit端口被阻止的问题）
+  // 如果环境变量配置了外部地址则使用环境变量，否则使用当前页面host通过nginx代理
   const getLivekitWsUrl = () => {
     const envUrl = process.env.REACT_APP_LIVEKIT_WS_URL;
     if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
       return envUrl;
     }
+    // 使用当前页面host + nginx代理的WebSocket路径
     const hostname = window.location.hostname;
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    return `${protocol}://${hostname}:7880`;
+    return `${protocol}://${hostname}/livekit-ws`;
   };
   const wsUrl = getLivekitWsUrl();
 
