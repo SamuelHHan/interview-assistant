@@ -73,6 +73,7 @@ router.post('/upload', upload.single('resume'), async (req, res) => {
       skills: parsedInfo.skills,
       experience: parsedInfo.experience,
       education: parsedInfo.education,
+      summary: parsedInfo.summary,
       status: 'analyzed'
     });
 

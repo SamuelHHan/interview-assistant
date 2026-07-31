@@ -1,6 +1,4 @@
-# 前端 Dockerfile - 多阶段构建
-
-# 阶段1: 构建应用
+# 前端 Dockerfile - 生产构建模式
 FROM node:18-alpine AS builder
 
 WORKDIR /app
@@ -15,20 +13,23 @@ RUN npm install
 COPY public/ ./public/
 COPY src/ ./src/
 
-# 构建应用
-RUN npm run build
+# 设置环境变量
+ENV NODE_ENV=production
+ENV REACT_APP_API_URL=/api
+ENV CI=true
 
-# 阶段2: 使用Nginx服务静态文件
+# 构建生产版本
+RUN npx react-scripts build
+
+# 使用nginx提供静态文件
 FROM nginx:alpine
-
-# 复制构建产物
-COPY --from=builder /app/build /usr/share/nginx/html
 
 # 复制nginx配置
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# 暴露端口
+# 复制构建产物到nginx
+COPY --from=builder /app/build /usr/share/nginx/html
+
 EXPOSE 80
 
-# 启动Nginx
 CMD ["nginx", "-g", "daemon off;"]

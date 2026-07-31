@@ -52,6 +52,11 @@ const Resume = sequelize.define('Resume', {
     allowNull: true,
     comment: 'Education background'
   },
+  summary: {
+    type: DataTypes.TEXT('long'),
+    allowNull: true,
+    comment: 'Resume summary'
+  },
   status: {
     type: DataTypes.ENUM('pending', 'parsed', 'analyzed', 'interviewed', 'completed'),
     defaultValue: 'pending',

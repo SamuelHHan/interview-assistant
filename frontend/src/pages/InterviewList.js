@@ -11,7 +11,10 @@ import {
   DatePicker, 
   InputNumber,
   message,
-  Popconfirm
+  Popconfirm,
+  Badge,
+  Tooltip,
+  Alert
 } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -19,7 +22,12 @@ import {
   EyeOutlined, 
   ThunderboltOutlined,
   MailOutlined,
-  CalendarOutlined
+  CalendarOutlined,
+  CheckCircleOutlined,
+  ClockCircleOutlined,
+  UserOutlined,
+  VideoCameraOutlined,
+  ReloadOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { interviewApi, resumeApi, jdApi, emailApi } from '../services/api';
@@ -35,6 +43,7 @@ function InterviewList() {
   const [selectedInterview, setSelectedInterview] = useState(null);
   const [form] = Form.useForm();
   const [scheduleForm] = Form.useForm();
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     fetchInterviews();
@@ -44,10 +53,18 @@ function InterviewList() {
   const fetchInterviews = async () => {
     try {
       setLoading(true);
+      console.log('Fetching interviews...');
       const response = await interviewApi.getList();
-      setInterviews(response.data.data || []);
+      console.log('Interviews response:', response);
+      const data = response.data?.data || [];
+      console.log('Interviews data:', data);
+      setInterviews(data);
+      return data;
     } catch (error) {
-      message.error('获取面试列表失败');
+      console.error('Fetch interviews error:', error);
+      console.error('Error response:', error.response);
+      message.error('获取面试列表失败: ' + (error.response?.data?.message || error.message));
+      return [];
     } finally {
       setLoading(false);
     }
@@ -68,16 +85,41 @@ function InterviewList() {
 
   const handleCreateInterview = async (values) => {
     try {
+      setCreating(true);
       const response = await interviewApi.create(values.resumeId, values.jdId);
-      message.success('面试创建成功');
+      const newInterview = response.data.data;
+      
+      message.success({
+        content: '面试创建成功！AI已自动生成问题并发送邀请邮件',
+        duration: 3
+      });
+      
       setCreateModalVisible(false);
       form.resetFields();
-      fetchInterviews();
       
-      // Navigate to interview detail
-      navigate(`/interview/${response.data.data.id}`);
+      // Refresh list first, then navigate
+      await fetchInterviews();
+      
+      // Show success modal with next steps
+      Modal.success({
+        title: '面试创建成功',
+        content: (
+          <div>
+            <p>AI已自动完成以下操作：</p>
+            <ul>
+              <li>✅ 生成面试问题</li>
+              <li>✅ 安排面试时间（明天）</li>
+              <li>✅ 发送邀请邮件给候选人</li>
+            </ul>
+            <p>候选人接受邀请后，您可以在列表中看到状态更新。</p>
+          </div>
+        ),
+        onOk: () => navigate(`/interview/${newInterview.id}`)
+      });
     } catch (error) {
       message.error('创建失败：' + (error.response?.data?.message || error.message));
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -111,6 +153,7 @@ function InterviewList() {
     try {
       await emailApi.sendInvitation(id);
       message.success('邀请邮件已发送');
+      fetchInterviews();
     } catch (error) {
       message.error('发送失败：' + (error.response?.data?.message || error.message));
     }
@@ -118,15 +161,28 @@ function InterviewList() {
 
   const getStatusTag = (status) => {
     const statusMap = {
-      pending: { color: 'default', text: '待处理' },
-      questions_generated: { color: 'processing', text: '已生成问题' },
-      confirmed: { color: 'warning', text: '已确认' },
-      email_sent: { color: 'cyan', text: '已发送邀请' },
-      in_progress: { color: 'blue', text: '进行中' },
-      completed: { color: 'success', text: '已完成' },
+      pending: { color: 'default', text: '待处理', icon: <ClockCircleOutlined /> },
+      questions_generated: { color: 'processing', text: '已生成问题', icon: <ThunderboltOutlined /> },
+      confirmed: { color: 'warning', text: '已确认', icon: <CheckCircleOutlined /> },
+      email_sent: { color: 'cyan', text: '已发送邀请', icon: <MailOutlined /> },
+      in_progress: { color: 'blue', text: '进行中', icon: <VideoCameraOutlined /> },
+      completed: { color: 'success', text: '已完成', icon: <CheckCircleOutlined /> },
     };
     const config = statusMap[status] || { color: 'default', text: status };
-    return <Tag color={config.color}>{config.text}</Tag>;
+    return <Tag color={config.color} icon={config.icon}>{config.text}</Tag>;
+  };
+
+  const getCandidateStatus = (record) => {
+    if (record.candidate_joined) {
+      return <Badge status="success" text="已加入会议" />;
+    }
+    if (record.candidate_accepted) {
+      return <Badge status="processing" text="已接受邀请" />;
+    }
+    if (record.status === 'email_sent') {
+      return <Badge status="default" text="等待接受" />;
+    }
+    return <Badge status="default" text="未邀请" />;
   };
 
   const columns = [
@@ -140,6 +196,12 @@ function InterviewList() {
       title: '候选人',
       dataIndex: ['resume', 'candidate_name'],
       key: 'candidate_name',
+      render: (text, record) => (
+        <Space>
+          <UserOutlined />
+          {text || '未知'}
+        </Space>
+      ),
     },
     {
       title: '职位',
@@ -153,10 +215,34 @@ function InterviewList() {
       render: (status) => getStatusTag(status),
     },
     {
+      title: '候选人状态',
+      key: 'candidate_status',
+      render: (_, record) => getCandidateStatus(record),
+    },
+    {
       title: '面试时间',
       dataIndex: 'scheduled_time',
       key: 'scheduled_time',
       render: (time) => time ? dayjs(time).format('YYYY-MM-DD HH:mm') : '-',
+    },
+    {
+      title: '会议',
+      key: 'meeting',
+      render: (_, record) => (
+        record.meeting_url ? (
+          <Tooltip title={`会议号: ${record.meeting_id}`}>
+            <Button 
+              type="link" 
+              size="small" 
+              icon={<VideoCameraOutlined />}
+              href={record.meeting_url}
+              target="_blank"
+            >
+              加入
+            </Button>
+          </Tooltip>
+        ) : '-'
+      ),
     },
     {
       title: '操作',
@@ -182,21 +268,19 @@ function InterviewList() {
             </Button>
           )}
           {record.status === 'confirmed' && (
-            <>
-              <Button 
-                type="link" 
-                size="small"
-                icon={<CalendarOutlined />}
-                onClick={() => {
-                  setSelectedInterview(record);
-                  setScheduleModalVisible(true);
-                }}
-              >
-                安排
-              </Button>
-            </>
+            <Button 
+              type="link" 
+              size="small"
+              icon={<CalendarOutlined />}
+              onClick={() => {
+                setSelectedInterview(record);
+                setScheduleModalVisible(true);
+              }}
+            >
+              安排
+            </Button>
           )}
-          {record.status === 'email_sent' && (
+          {record.status === 'email_sent' && !record.candidate_accepted && (
             <Button 
               type="link" 
               size="small"
@@ -213,16 +297,32 @@ function InterviewList() {
 
   return (
     <div>
+      <Alert
+        message="面试流程说明"
+        description="创建面试后，AI将自动生成面试问题、安排会议并发送邀请邮件。候选人接受邀请并加入会议后，状态会实时更新。"
+        type="info"
+        showIcon
+        style={{ marginBottom: 16 }}
+      />
+      
       <Card 
         title="面试管理" 
         extra={
-          <Button 
-            type="primary" 
-            icon={<PlusOutlined />}
-            onClick={() => setCreateModalVisible(true)}
-          >
-            创建面试
-          </Button>
+          <Space>
+            <Button 
+              icon={<ReloadOutlined />}
+              onClick={fetchInterviews}
+            >
+              刷新
+            </Button>
+            <Button 
+              type="primary" 
+              icon={<PlusOutlined />}
+              onClick={() => setCreateModalVisible(true)}
+            >
+              创建面试
+            </Button>
+          </Space>
         }
       >
         <Table 
@@ -231,6 +331,9 @@ function InterviewList() {
           rowKey="id"
           loading={loading}
           pagination={{ pageSize: 10 }}
+          locale={{
+            emptyText: '暂无面试记录，点击右上角"创建面试"开始'
+          }}
         />
       </Card>
 
@@ -241,9 +344,16 @@ function InterviewList() {
         onCancel={() => setCreateModalVisible(false)}
         footer={null}
       >
+        <Alert
+          message="创建后AI将自动"
+          description="1. 生成面试问题 2. 安排会议时间 3. 发送邀请邮件"
+          type="success"
+          showIcon
+          style={{ marginBottom: 16 }}
+        />
         <Form form={form} layout="vertical" onFinish={handleCreateInterview}>
           <Form.Item name="resumeId" label="选择简历" rules={[{ required: true }]}>
-            <Select placeholder="请选择简历">
+            <Select placeholder="请选择简历" loading={resumes.length === 0}>
               {resumes.map((r) => (
                 <Select.Option key={r.id} value={r.id}>
                   {r.candidate_name} ({r.candidate_email})
@@ -252,7 +362,7 @@ function InterviewList() {
             </Select>
           </Form.Item>
           <Form.Item name="jdId" label="选择职位" rules={[{ required: true }]}>
-            <Select placeholder="请选择职位">
+            <Select placeholder="请选择职位" loading={jds.length === 0}>
               {jds.map((j) => (
                 <Select.Option key={j.id} value={j.id}>
                   {j.title} - {j.company}
@@ -260,8 +370,8 @@ function InterviewList() {
               ))}
             </Select>
           </Form.Item>
-          <Button type="primary" htmlType="submit" block>
-            创建
+          <Button type="primary" htmlType="submit" block loading={creating}>
+            {creating ? '创建中...' : '创建'}
           </Button>
         </Form>
       </Modal>

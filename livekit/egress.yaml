@@ -1,0 +1,32 @@
+# LiveKit Egress 录制服务配置
+# 用于Docker Compose部署
+
+# Redis连接
+redis:
+  address: redis:6379
+
+# LiveKit API连接
+api_key: livekit_api_key
+api_secret: livekit_api_secret_change_me
+ws_url: ws://livekit:7880
+
+# 内部服务端口
+health_port: 8080
+template_port: 7980
+
+# 安全设置（Docker内网通信，关闭TLS验证）
+insecure: true
+
+# 日志级别
+log_level: info
+
+# 存储配置（录制文件保存到本地卷）
+# 开发环境使用本地存储，生产环境建议用S3
+# s3:
+#   access_key: YOUR_AWS_ACCESS_KEY
+#   secret: YOUR_AWS_SECRET
+#   region: us-east-1
+#   bucket: your-bucket-name
+
+# 本地存储配置
+local_store_directory: /data/recordings

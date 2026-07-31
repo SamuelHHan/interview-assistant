@@ -14,10 +14,13 @@ import ResumeUpload from './pages/ResumeUpload';
 import InterviewList from './pages/InterviewList';
 import InterviewDetail from './pages/InterviewDetail';
 import ReportDetail from './pages/ReportDetail';
+import CandidateInvite from './pages/CandidateInvite';
+import LiveKitMeeting from './pages/LiveKitMeeting';
 
 const { Header, Content, Footer, Sider } = Layout;
 
-function App() {
+// Layout wrapper for admin routes
+function AdminLayout({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -104,14 +107,7 @@ function App() {
         </Header>
         <Content style={{ margin: '24px 16px 0', overflow: 'initial' }}>
           <div style={{ padding: 24, background: '#fff', borderRadius: 8, minHeight: 360 }}>
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/upload" element={<ResumeUpload />} />
-              <Route path="/interviews" element={<InterviewList />} />
-              <Route path="/interview/:id" element={<InterviewDetail />} />
-              <Route path="/reports" element={<ReportDetail />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
+            {children}
           </div>
         </Content>
         <Footer style={{ textAlign: 'center', color: '#999' }}>
@@ -119,6 +115,30 @@ function App() {
         </Footer>
       </Layout>
     </Layout>
+  );
+}
+
+function App() {
+  return (
+    <Routes>
+      {/* Full-screen routes without admin layout */}
+      <Route path="/livekit/meeting" element={<LiveKitMeeting />} />
+      <Route path="/candidate/invite/:id" element={<CandidateInvite />} />
+      
+      {/* Admin routes with layout */}
+      <Route path="/*" element={
+        <AdminLayout>
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/upload" element={<ResumeUpload />} />
+            <Route path="/interviews" element={<InterviewList />} />
+            <Route path="/interview/:id" element={<InterviewDetail />} />
+            <Route path="/reports" element={<ReportDetail />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </AdminLayout>
+      } />
+    </Routes>
   );
 }
 

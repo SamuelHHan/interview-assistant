@@ -45,7 +45,16 @@ router.post('/send-invitation', async (req, res) => {
       interviewTime: interviewTime,
       duration: interview.duration,
       meetingUrl: interview.meeting_url,
-      meetingId: interview.meeting_id
+      meetingId: interview.meeting_id,
+      interviewId: interview.id,
+      frontendUrl: process.env.FRONTEND_URL,
+      tokenExpires: interview.meeting_token_expires
+    });
+
+    // Update interview status to email_sent
+    await interview.update({
+      status: 'email_sent',
+      auto_email_sent: true
     });
 
     res.json({

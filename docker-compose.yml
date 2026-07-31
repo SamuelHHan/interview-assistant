@@ -24,28 +24,92 @@ services:
       timeout: 5s
       retries: 5
 
+  # Redis（LiveKit消息队列）
+  redis:
+    image: redis:7-alpine
+    container_name: interview-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - interview-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # LiveKit服务器
+  livekit:
+    image: livekit/livekit-server:latest
+    container_name: interview-livekit
+    restart: unless-stopped
+    # 使用命令行参数直接配置，避免配置文件环境变量替换问题
+    # node-ip 必须是候选人浏览器能访问到的地址（服务器公网IP或域名），本地开发用127.0.0.1
+    environment:
+      - "LIVEKIT_KEYS=livekit_api_key: livekit_api_secret_change_me"
+    command: >
+      --dev
+      --node-ip ${LIVEKIT_NODE_IP:-127.0.0.1}
+      --bind 0.0.0.0
+      --redis-host redis:6379
+    ports:
+      - "7880:7880"   # HTTP API
+      - "7881:7881"   # WebSocket TCP
+      - "7882:7882/udp"  # WebRTC UDP
+    networks:
+      - interview-network
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+
+  # Egress服务（录制）
+  egress:
+    image: livekit/egress:latest
+    container_name: interview-egress
+    restart: unless-stopped
+    command: --config /etc/livekit/egress.yaml
+    volumes:
+      - ./livekit/egress.yaml:/etc/livekit/egress.yaml:ro
+      - recordings_data:/data/recordings
+    ports:
+      - "8080:8080"   # Health check
+    networks:
+      - interview-network
+    depends_on:
+      - redis
+      - livekit
+
   # 后端服务
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: interview-backend
-    restart: unless-stopped
+    restart: on-failure:5
     environment:
-      - NODE_ENV=production
+      - NODE_ENV=development
       - DB_HOST=mysql
       - DB_PORT=3306
       - DB_NAME=interview_assistant
       - DB_USER=root
       - DB_PASSWORD=${DB_PASSWORD:-root123456}
       - QWEN_API_KEY=${QWEN_API_KEY}
+      - QWEN_API_URL=${QWEN_API_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}
       - EMAIL_HOST=${EMAIL_HOST}
       - EMAIL_PORT=${EMAIL_PORT:-465}
       - EMAIL_USER=${EMAIL_USER}
       - EMAIL_PASSWORD=${EMAIL_PASSWORD}
-      - TENCENT_SECRET_ID=${TENCENT_SECRET_ID}
-      - TENCENT_SECRET_KEY=${TENCENT_SECRET_KEY}
-      - TENCENT_APP_ID=${TENCENT_APP_ID}
+      # LiveKit Configuration（Docker内网地址）
+      - LIVEKIT_API_KEY=${LIVEKIT_API_KEY:-livekit_api_key}
+      - LIVEKIT_API_SECRET=${LIVEKIT_API_SECRET:-livekit_api_secret_change_me}
+      - LIVEKIT_WS_URL=ws://livekit:7880
+      - LIVEKIT_HTTP_URL=http://livekit:7880
+      # 前端浏览器直接访问LiveKit的地址
+      - LIVEKIT_PUBLIC_WS_URL=${LIVEKIT_PUBLIC_WS_URL:-ws://localhost:7880}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost}
     ports:
       - "3001:3001"
     volumes:
@@ -55,8 +119,10 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+      livekit:
+        condition: service_started
 
-  # 前端服务
+  # 前端服务（使用nginx提供静态文件）
   frontend:
     build:
       context: ./frontend
@@ -75,6 +141,8 @@ volumes:
   mysql_data:
     driver: local
   backend_uploads:
+    driver: local
+  recordings_data:
     driver: local
 
 # 网络

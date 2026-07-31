@@ -46,12 +46,22 @@ const Interview = sequelize.define('Interview', {
   meeting_url: {
     type: DataTypes.STRING(500),
     allowNull: true,
-    comment: 'Tencent meeting URL'
+    comment: 'LiveKit meeting URL'
   },
   meeting_id: {
     type: DataTypes.STRING(100),
     allowNull: true,
-    comment: 'Tencent meeting ID'
+    comment: 'LiveKit room name'
+  },
+  meeting_token: {
+    type: DataTypes.STRING(500),
+    allowNull: true,
+    comment: 'LiveKit candidate token (valid for 7 days)'
+  },
+  meeting_token_expires: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    comment: 'When the meeting token expires'
   },
   status: {
     type: DataTypes.ENUM('pending', 'questions_generated', 'confirmed', 'email_sent', 'in_progress', 'completed', 'cancelled'),
@@ -63,10 +73,75 @@ const Interview = sequelize.define('Interview', {
     allowNull: true,
     comment: 'Interview recording URL'
   },
+  recording_egress_id: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+    comment: 'LiveKit egress ID for recording'
+  },
   transcript: {
     type: DataTypes.TEXT('long'),
     allowNull: true,
     comment: 'Interview transcript'
+  },
+  meeting_minutes: {
+    type: DataTypes.TEXT('long'),
+    allowNull: true,
+    comment: 'Meeting minutes from interview conversation'
+  },
+  ai_evaluation: {
+    type: DataTypes.JSON,
+    allowNull: true,
+    comment: 'AI evaluation: fluency, professionalism, etc.'
+  },
+  overall_score: {
+    type: DataTypes.DECIMAL(3, 1),
+    allowNull: true,
+    comment: 'Overall interview score'
+  },
+  candidate_accepted: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    comment: 'Whether candidate accepted the interview invitation'
+  },
+  accepted_at: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    comment: 'When candidate accepted the invitation'
+  },
+  candidate_joined: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    comment: 'Whether candidate joined the meeting'
+  },
+  joined_at: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    comment: 'When candidate joined the meeting'
+  },
+  auto_email_sent: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    comment: 'Whether invitation email was auto-sent'
+  },
+  ai_agent_joined: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    comment: 'Whether AI agent joined the meeting'
+  },
+  ai_agent_joined_at: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    comment: 'When AI agent joined the meeting'
+  },
+  interview_started_at: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    comment: 'When interview started'
+  },
+  interview_ended_at: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    comment: 'When interview ended'
   }
 }, {
   tableName: 'interviews',

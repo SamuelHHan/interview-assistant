@@ -14,19 +14,28 @@ import {
   Row,
   Col,
   Divider,
-  Progress
+  Progress,
+  Badge,
+  Steps,
+  Alert,
+  Tooltip
 } from 'antd';
 import { 
   ArrowLeftOutlined,
   CheckOutlined,
   MailOutlined,
   PlayCircleOutlined,
-  FileTextOutlined
+  FileTextOutlined,
+  UserOutlined,
+  VideoCameraOutlined,
+  ClockCircleOutlined,
+  CheckCircleOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { interviewApi, emailApi, reportApi } from '../services/api';
 
 const { TextArea } = Input;
+const { Step } = Steps;
 
 function InterviewDetail() {
   const { id } = useParams();
@@ -38,6 +47,9 @@ function InterviewDetail() {
 
   useEffect(() => {
     fetchInterview();
+    // Poll for status updates every 10 seconds
+    const interval = setInterval(fetchInterview, 10000);
+    return () => clearInterval(interval);
   }, [id]);
 
   const fetchInterview = async () => {
@@ -68,6 +80,7 @@ function InterviewDetail() {
     try {
       await emailApi.sendInvitation(id);
       message.success('邀请邮件已发送');
+      fetchInterview();
     } catch (error) {
       message.error('发送失败');
     }
@@ -106,7 +119,37 @@ function InterviewDetail() {
     return <Tag color={config.color}>{config.text}</Tag>;
   };
 
-  if (loading) {
+  const getCandidateStatusTag = () => {
+    if (!interview) return null;
+    if (interview.candidate_joined) {
+      return <Badge status="success" text="候选人已加入会议" />;
+    }
+    if (interview.candidate_accepted) {
+      return <Badge status="processing" text="候选人已接受邀请" />;
+    }
+    if (interview.status === 'email_sent') {
+      return <Badge status="default" text="等待候选人接受" />;
+    }
+    return <Badge status="default" text="未发送邀请" />;
+  };
+
+  const getCurrentStep = () => {
+    if (!interview) return 0;
+    switch (interview.status) {
+      case 'pending': return 0;
+      case 'questions_generated': return 1;
+      case 'confirmed': return 2;
+      case 'email_sent': 
+        if (interview.candidate_joined) return 4;
+        if (interview.candidate_accepted) return 3;
+        return 3;
+      case 'in_progress': return 4;
+      case 'completed': return 5;
+      default: return 0;
+    }
+  };
+
+  if (loading && !interview) {
     return (
       <div style={{ textAlign: 'center', padding: 50 }}>
         <Spin size="large" />
@@ -127,6 +170,35 @@ function InterviewDetail() {
       >
         返回列表
       </Button>
+
+      {/* Process Steps */}
+      <Card style={{ marginBottom: 16 }}>
+        <Steps current={getCurrentStep()} size="small">
+          <Step title="创建面试" icon={<UserOutlined />} />
+          <Step title="生成问题" icon={<FileTextOutlined />} />
+          <Step title="确认问题" icon={<CheckOutlined />} />
+          <Step title="发送邀请" icon={<MailOutlined />} />
+          <Step title="进行面试" icon={<VideoCameraOutlined />} />
+          <Step title="完成" icon={<CheckCircleOutlined />} />
+        </Steps>
+      </Card>
+
+      {/* Candidate Status Alert */}
+      {interview.status === 'email_sent' && (
+        <Alert
+          message={getCandidateStatusTag()}
+          description={
+            interview.candidate_joined 
+              ? `候选人已于 ${dayjs(interview.joined_at).format('YYYY-MM-DD HH:mm')} 加入会议`
+              : interview.candidate_accepted
+              ? `候选人已于 ${dayjs(interview.accepted_at).format('YYYY-MM-DD HH:mm')} 接受邀请，等待加入会议`
+              : '邀请邮件已发送，等待候选人接受。候选人可以通过邮件中的链接接受邀请并加入会议。'
+          }
+          type={interview.candidate_joined ? 'success' : interview.candidate_accepted ? 'info' : 'warning'}
+          showIcon
+          style={{ marginBottom: 16 }}
+        />
+      )}
 
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={8}>
@@ -158,6 +230,9 @@ function InterviewDetail() {
                     加入会议
                   </a>
                 ) : '-'}
+              </Descriptions.Item>
+              <Descriptions.Item label="会议号">
+                {interview.meeting_id || '-'}
               </Descriptions.Item>
             </Descriptions>
           </Card>
@@ -217,7 +292,7 @@ function InterviewDetail() {
               发送邀请邮件
             </Button>
           )}
-          {interview.status === 'email_sent' && (
+          {interview.status === 'email_sent' && interview.candidate_joined && (
             <Button 
               type="primary"
               icon={<PlayCircleOutlined />}

@@ -6,11 +6,20 @@ dotenv.config();
 class QwenService {
   constructor() {
     this.apiKey = process.env.QWEN_API_KEY;
-    this.apiUrl = process.env.QWEN_API_URL || 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation';
+    const baseUrl = process.env.QWEN_API_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1';
+    // 确保URL以 /chat/completions 结尾（OpenAI兼容模式的完整端点）
+    if (baseUrl.endsWith('/chat/completions')) {
+      this.apiUrl = baseUrl;
+    } else if (baseUrl.endsWith('/v1')) {
+      this.apiUrl = `${baseUrl}/chat/completions`;
+    } else {
+      this.apiUrl = baseUrl;
+    }
+    console.log('Qwen API URL:', this.apiUrl);
   }
 
   /**
-   * Call Qwen API for text generation
+   * Call Qwen API for text generation (OpenAI compatible mode)
    * @param {string} prompt - The prompt to send
    * @param {object} options - Additional options
    * @returns {Promise<string>} - Generated text
@@ -21,15 +30,13 @@ class QwenService {
         this.apiUrl,
         {
           model: options.model || 'qwen-turbo',
-          input: {
-            prompt: prompt
-          },
-          parameters: {
-            temperature: options.temperature || 0.7,
-            max_tokens: options.maxTokens || 2000,
-            top_p: options.topP || 0.9,
-            ...options.parameters
-          }
+          messages: [
+            { role: 'user', content: prompt }
+          ],
+          temperature: options.temperature || 0.7,
+          max_tokens: options.maxTokens || 2000,
+          top_p: options.topP || 0.9,
+          ...options.parameters
         },
         {
           headers: {
@@ -39,7 +46,8 @@ class QwenService {
         }
       );
 
-      return response.data.output?.text || '';
+      // OpenAI compatible response format
+      return response.data.choices?.[0]?.message?.content || '';
     } catch (error) {
       console.error('Qwen API Error:', error.response?.data || error.message);
       throw new Error(`Qwen API call failed: ${error.message}`);
@@ -250,6 +258,87 @@ recommendation可选值：highly_recommend, recommend, neutral, not_recommend, s
 你的回复：`;
 
     return await this.generateText(prompt, { temperature: 0.6, maxTokens: 200 });
+  }
+
+  /**
+   * Evaluate interview from transcript
+   * @param {string} transcript - Interview transcript text
+   * @param {Array} questions - Interview questions
+   * @param {string} jdContent - Job description
+   * @returns {Promise<object>} - Evaluation result
+   */
+  async evaluateInterview(transcript, questions, jdContent) {
+    const prompt = `你是一位资深的HR面试评估专家。请根据以下面试记录，对候选人进行全面评估。
+
+职位描述：
+${jdContent}
+
+面试问题：
+${JSON.stringify(questions || [], null, 2)}
+
+面试记录（按时间顺序）：
+${transcript}
+
+请对面试进行全面分析并返回JSON格式的评估结果：
+
+{
+  "meeting_minutes": "完整的会议纪要，包括：1.面试概述 2.每个问题的回答要点 3.关键表现记录",
+  "fluency_score": 8.5,
+  "fluency_comment": "回答流畅度评价，包括语言表达、逻辑性、连贯性等",
+  "professionalism_score": 8.0,
+  "professionalism_comment": "专业度评价，包括专业知识掌握程度、技术深度、行业理解等",
+  "communication_score": 7.5,
+  "communication_comment": "沟通能力评价，包括表达清晰度、理解能力、互动表现等",
+  "technical_depth_score": 8.0,
+  "technical_depth_comment": "技术深度评价，包括问题解决能力、架构设计能力、代码质量意识等",
+  "strengths": ["优势1", "优势2", "优势3"],
+  "weaknesses": ["不足1", "不足2"],
+  "overall_comment": "总体评语，综合评价候选人的表现和匹配度",
+  "recommendation": "recommend"
+}
+
+评分标准（1-10分）：
+- fluency_score: 回答流畅度 - 语言表达是否流畅、逻辑是否清晰
+- professionalism_score: 专业度 - 专业知识和技能掌握程度
+- communication_score: 沟通能力 - 表达清晰、理解准确、互动良好
+- technical_depth_score: 技术深度 - 对技术的理解深度和广度
+
+recommendation可选值：
+- highly_recommend: 强烈推荐
+- recommend: 推荐
+- neutral: 待定
+- not_recommend: 不推荐
+- strongly_not_recommend: 强烈不推荐
+
+请只返回JSON格式的数据，不要包含其他文字。`;
+
+    const result = await this.generateText(prompt, { temperature: 0.4, maxTokens: 4000 });
+    
+    try {
+      const jsonMatch = result.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        return JSON.parse(jsonMatch[0]);
+      }
+      throw new Error('No valid JSON found in response');
+    } catch (parseError) {
+      console.error('Failed to parse evaluation JSON:', parseError);
+      // Return default evaluation on failure
+      return {
+        meeting_minutes: '会议纪要生成失败',
+        fluency_score: 5,
+        fluency_comment: '评估失败',
+        professionalism_score: 5,
+        professionalism_comment: '评估失败',
+        communication_score: 5,
+        communication_comment: '评估失败',
+        technical_depth_score: 5,
+        technical_depth_comment: '评估失败',
+        strengths: [],
+        weaknesses: [],
+        overall_comment: 'AI评估失败，请人工评估',
+        recommendation: 'neutral'
+      };
+    }
   }
 }
 

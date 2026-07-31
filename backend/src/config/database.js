@@ -33,10 +33,14 @@ const testConnection = async () => {
     await sequelize.authenticate();
     console.log('✅ Database connection has been established successfully.');
     
-    // Sync all models
-    if (process.env.NODE_ENV === 'development') {
+    // Sync all models - alter: true updates table structure without dropping data
+    // Use force: true only when you want to reset the database
+    if (process.env.DB_FORCE_SYNC === 'true') {
+      await sequelize.sync({ force: true });
+      console.log('⚠️  Database models synchronized (tables DROPPED and recreated).');
+    } else {
       await sequelize.sync({ alter: true });
-      console.log('✅ Database models synchronized.');
+      console.log('✅ Database models synchronized (tables updated, data preserved).');
     }
   } catch (error) {
     console.error('❌ Unable to connect to the database:', error);

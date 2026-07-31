@@ -1,0 +1,49 @@
+# LiveKit 服务器配置
+# 用于Docker Compose部署
+
+# 服务端口配置
+port: 7880
+bind_addresses:
+  - ""
+
+# WebSocket连接配置
+rtc:
+  udp_port: 7882
+  tcp_port: 7881
+  use_external_ip: false
+  # 允许所有来源（开发环境）
+  allow_pause_subs: true
+
+# Redis配置（用于多节点和消息队列）
+redis:
+  address: redis:6379
+
+# API密钥配置
+keys:
+  ${LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET}
+
+# 房间配置
+room:
+  enabled_codecs:
+    - mime: audio/opus
+    - mime: video/vp8
+  empty_timeout: 60
+  departure_timeout: 20
+
+# WebHook配置（面试录制完成后通知后端）
+webhook:
+  urls:
+    - http://backend:3001/api/livekit/webhook
+
+# TURN服务器配置（用于NAT穿透）
+turn:
+  enabled: true
+  domain: turn.localhost
+  tls_port: 3478
+  udp_port: 3479
+  external_tls: false
+
+# 日志配置
+logging:
+  level: info
+  json: false

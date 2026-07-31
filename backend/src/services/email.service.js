@@ -30,8 +30,14 @@ class EmailService {
       interviewTime,
       duration,
       meetingUrl,
-      meetingId
+      meetingId,
+      interviewId,
+      frontendUrl,
+      tokenExpires
     } = options;
+    
+    const candidateInviteUrl = `${frontendUrl || 'http://localhost'}/candidate/invite/${interviewId}`;
+    const expiresText = tokenExpires ? new Date(tokenExpires).toLocaleString('zh-CN') : '7天后过期';
 
     const mailOptions = {
       from: `"面试助手" <${process.env.EMAIL_USER}>`,
@@ -65,14 +71,29 @@ class EmailService {
                 <h3>📅 面试安排</h3>
                 <p><strong>面试时间：</strong>${interviewTime}</p>
                 <p><strong>面试时长：</strong>约 ${duration} 分钟</p>
-                <p><strong>面试形式：</strong>AI视频面试（腾讯会议）</p>
+                <p><strong>面试形式：</strong>AI视频面试（LiveKit）</p>
               </div>
               
               <div class="info-box">
                 <h3>🔗 会议信息</h3>
-                <p><strong>会议号：</strong>${meetingId}</p>
+                <p><strong>会议室：</strong>${meetingId}</p>
+                <p><strong>链接有效期至：</strong>${expiresText}</p>
                 <p style="text-align: center; margin-top: 15px;">
                   <a href="${meetingUrl}" class="button">点击加入会议</a>
+                </p>
+                <p style="font-size: 12px; color: #999; text-align: center;">
+                  会议链接一周内有效，请及时参加面试
+                </p>
+              </div>
+              
+              <div class="info-box">
+                <h3>✅ 确认出席</h3>
+                <p>请点击下方链接确认您是否参加本次面试：</p>
+                <p style="text-align: center; margin-top: 15px;">
+                  <a href="${candidateInviteUrl}" class="button" style="background: #52c41a;">确认出席 / 加入面试</a>
+                </p>
+                <p style="font-size: 12px; color: #999; text-align: center;">
+                  或复制链接到浏览器打开：${candidateInviteUrl}
                 </p>
               </div>
               
@@ -82,6 +103,7 @@ class EmailService {
                   <li>请提前5分钟进入会议室，检查摄像头和麦克风</li>
                   <li>面试将由AI面试官进行，请保持放松</li>
                   <li>面试全程约${duration}分钟，请确保时间充足</li>
+                  <li>建议使用Chrome或Edge浏览器，确保网络稳定</li>
                   <li>如有问题，请回复此邮件联系我们</li>
                 </ul>
               </div>
